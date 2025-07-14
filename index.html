@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <title>Power Curve Drawer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: Arial, sans-serif;
+      margin: 10px;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+    #canvasContainer {
+      width: 100%;
+      max-width: 600px;
+      margin: 20px 0;
+      position: relative;
+      overflow: visible;
+    }
+    canvas {
+      border: 1px solid black;
+      display: block;
+      max-width: 100%;
+      visibility: visible;
+    }
+    #instructions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 600px;
+    }
+    select, input[type="number"] {
+      font-size: 18px;
+      padding: 10px;
+      margin: 10px 0;
+      width: 90%;
+      max-width: 300px;
+      border-radius: 5px;
+    }
+    button {
+      font-size: 18px;
+      padding: 12px 20px;
+      margin: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 90%;
+      max-width: 300px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #areaOutput, #tariffOutput {
+      white-space: pre-wrap;
+      font-size: 16px;
+      width: 90%;
+      max-width: 600px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvasContainer"></div>
+  <div id="instructions">
+    <p>選擇電價模式：
+      <select id="tariffMode">
+        <option value="summer_three">夏月三段式</option>
+        <option value="summer_two">夏月二段式</option>
+        <option value="nonSummer_three">非夏月三段式</option>
+        <option value="nonSummer_two">非夏月二段式</option>
+      </select>
+    </p>
+    <p>輸入 Y 軸最大值 (kW)：
+      <input type="number" id="yMax" min="1" value="100">
+    </p>
+    <p>在畫布上拖曳（從左到右）繪製曲線，然後點擊「計算電費」。</p>
+    <button id="calculate">計算電費</button>
+    <button id="clearCanvas">清空畫布</button>
+    <p id="areaOutput"></p>
+    <p id="tariffOutput"></p>
+  </div>
+  <script>
+    let points = [];
+    let yMax = 100;
+    let isDrawing = true;
+    let tariffMode = { season: 'summer', type: 'three' };
+    const margin = 40;
+    let canvasWidth = Math.min(window.innerWidth * 0.9, 600);
+    let canvasHeight = Math.min(window.innerWidth * 0.6, 400);
+
+    // 電價定義
+    const tariffs = {
+      summer: {
+        three: [
+          { start: 0, end: 9, rate: 2.53 },
+          { start: 9, end: 16, rate: 5.85 },
+          { start: 16, end: 22, rate: 9.39 },
+          { start: 22, end: 24, rate: 5.85 }
+        ],
+        two: [
+          { start: 0, end: 9, rate: 2.71 },
+          { start: 9, end: 24, rate: 6.75 }
+        ]
+      },
+      nonSummer: {
+        three: [
+          { start: 0, end: 6, rate: 2.32 },
+          { start: 6, end: 11, rate: 5.47 },
+          { start: 11, end: 14, rate: 2.32 },
+          { start: 14, end: 24, rate: 5.47 }
+        ],
+        two: [
+          { start: 0, end: 6, rate: 2.46 },
+          { start: 6, end: 11, rate: 6.37 },
+          { start: 11, end: 14, rate: 2.46 },
+          { start: 14, end: 24, rate: 6.37 }
+        ]
+      }
+    };
+
+    function setup() {
+      try {
+        if (typeof p5 === 'undefined') {
+          throw new Error('p5.js 未載入，請檢查網路連線');
+        }
+        let canvas = createCanvas(canvasWidth, canvasHeight);
+        canvas.parent('canvasContainer');
+        textAlign(CENTER, CENTER);
+        textSize(12);
+        console.log('畫布初始化成功，尺寸:', canvasWidth, 'x', canvasHeight);
+      } catch (e) {
+        console.error('畫布初始化失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：無法初始化畫布，原因：${e.message}。請檢查網路或瀏覽器設置。`;
+        return;
+      }
+
+      // 按鈕和輸入框事件監聽器
+      document.getElementById('yMax').addEventListener('change', (e) => {
+        yMax = parseFloat(e.target.value) || 100;
+        if (yMax <= 0) yMax = 100;
+        console.log('Y 軸最大值改變:', yMax);
+      });
+
+      document.getElementById('tariffMode').addEventListener('change', (e) => {
+        const [season, type] = e.target.value.split('_');
+        tariffMode = { season, type };
+        console.log('電價模式改變:', tariffMode);
+      });
+
+      document.getElementById('calculate').addEventListener('click', () => {
+        console.log('點擊計算電費，點數:', points.length, 'isDrawing:', isDrawing);
+        calculateTariff();
+      });
+
+      document.getElementById('clearCanvas').addEventListener('click', () => {
+        points = [];
+        isDrawing = true;
+        document.getElementById('areaOutput').innerText = '';
+        document.getElementById('tariffOutput').innerText = '';
+        console.log('點擊清空畫布');
+      });
+    }
+
+    function draw() {
+      try {
+        background(255);
+        // 繪製網格
+        stroke(200);
+        for (let x = 0; x <= 24; x++) {
+          let px = map(x, 0, 24, margin, width - 10);
+          line(px, margin, px, height - margin);
+        }
+        for (let y = 0; y <= yMax; y += yMax / 10) {
+          let py = map(y, 0, yMax, height - margin, margin);
+          line(margin, py, width - 10, py);
+        }
+
+        // 繪製軸
+        stroke(0);
+        line(margin, height - margin, width - 10, height - margin);
+        line(margin, margin, margin, height - margin);
+
+        // 繪製 X 軸刻度
+        for (let x = 0; x <= 24; x++) {
+          let px = map(x, 0, 24, margin, width - 10);
+          text(x, px, height - margin + 15);
+        }
+
+        // 繪製 Y 軸刻度
+        for (let y = 0; y <= yMax; y += yMax / 10) {
+          let py = map(y, 0, yMax, height - margin, margin);
+          text(y.toFixed(0), margin - 15, py);
+        }
+
+        // 繪製軸標籤
+        text('Time (hours)', width / 2, height - margin + 35);
+        push();
+        translate(margin - 35, height / 2);
+        rotate(-PI / 2);
+        text('Power (kW)', 0, 0);
+        pop();
+
+        // 繪製曲線
+        if (points.length > 0) {
+          stroke(0, 0, 255);
+          fill(0, 0, 255, 50);
+          beginShape();
+          vertex(margin, height - margin);
+          for (let p of points) {
+            vertex(p.x, p.y);
+          }
+          if (!isDrawing) {
+            vertex(points[points.length - 1].x, height - margin);
+          }
+          endShape(CLOSE);
+
+          stroke(0, 0, 255);
+          noFill();
+          beginShape();
+          for (let p of points) {
+            vertex(p.x, p.y);
+          }
+          endShape();
+          for (let p of points) {
+            fill(255, 0, 0);
+            ellipse(p.x, p.y, 5, 5);
+          }
+        }
+      } catch (e) {
+        console.error('繪製畫布失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：繪製畫布失敗，原因：${e.message}`;
+      }
+    }
+
+    // 共用繪圖邏輯
+    function startDrawing(x, y, isTouch) {
+      try {
+        if (isDrawing && x >= margin && x <= width - 10 && y >= margin && y <= height - margin) {
+          let xHour = map(x, margin, width - 10, 0, 24);
+          points.push({ x: x, y: y, xHour: xHour, yKW: map(y, height - margin, margin, 0, yMax) });
+          console.log(`${isTouch ? 'Touch' : 'Mouse'} started, xHour:`, xHour);
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.error('開始繪圖失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：開始繪圖失敗，原因：${e.message}`;
+        return false;
+      }
+    }
+
+    function continueDrawing(x, y, isTouch) {
+      try {
+        if (isDrawing && x >= margin && x <= width - 10 && y >= margin && y <= height - margin) {
+          let xHour = map(x, margin, width - 10, 0, 24);
+          points.push({ x: x, y: y, xHour: xHour, yKW: map(y, height - margin, margin, 0, yMax) });
+          console.log(`${isTouch ? 'Touch' : 'Mouse'} moved, xHour:`, xHour, 'points:', points.length);
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.error('繼續繪圖失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：繼續繪圖失敗，原因：${e.message}`;
+        return false;
+      }
+    }
+
+    function endDrawing(isTouch) {
+      try {
+        if (points.length > 1) {
+          isDrawing = false;
+          console.log(`${isTouch ? 'Touch' : 'Mouse'} ended, isDrawing:`, isDrawing, 'points:', points.length);
+        }
+      } catch (e) {
+        console.error('結束繪圖失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：結束繪圖失敗，原因：${e.message}`;
+      }
+    }
+
+    // 觸控事件
+    function touchStarted(e) {
+      if (startDrawing(mouseX, mouseY, true)) {
+        e.preventDefault();
+      }
+      return false;
+    }
+
+    function touchMoved(e) {
+      if (continueDrawing(mouseX, mouseY, true)) {
+        e.preventDefault();
+      }
+      return false;
+    }
+
+    function touchEnded(e) {
+      endDrawing(true);
+      e.preventDefault();
+      return false;
+    }
+
+    // 滑鼠事件
+    function mousePressed() {
+      startDrawing(mouseX, mouseY, false);
+      return false;
+    }
+
+    function mouseDragged() {
+      continueDrawing(mouseX, mouseY, false);
+      return false;
+    }
+
+    function mouseReleased() {
+      endDrawing(false);
+      return false;
+    }
+
+    // 線性插值函數
+    function interpolatePower(t, points) {
+      if (points.length === 0) return 0;
+      if (points.length === 1) return points[0].yKW;
+      for (let i = 0; i < points.length - 1; i++) {
+        let x1 = points[i].xHour;
+        let x2 = points[i + 1].xHour;
+        if (t >= x1 && t <= x2) {
+          let y1 = points[i].yKW;
+          let y2 = points[i + 1].yKW;
+          let fraction = (t - x1) / (x2 - x1);
+          return y1 + (y2 - y1) * fraction;
+        }
+      }
+      if (t < points[0].xHour) return points[0].yKW;
+      return points[points.length - 1].yKW;
+    }
+
+    // 計算電費
+    function calculateTariff() {
+      try {
+        if (points.length > 1) {
+          isDrawing = false;
+          let xHours = points.map(p => p.xHour);
+          let yKWs = points.map(p => p.yKW);
+
+          // 計算總面積
+          let totalArea = 0;
+          for (let i = 0; i < points.length - 1; i++) {
+            totalArea += (xHours[i + 1] - xHours[i]) * (yKWs[i] + yKWs[i + 1]) / 2;
+          }
+          totalArea = Math.round(totalArea);
+          document.getElementById('areaOutput').innerText = `當日用電度數：${totalArea} kW·h`;
+
+          // 計算電費
+          let currentTariffs = tariffs[tariffMode.season][tariffMode.type];
+          let totalCost = 0;
+          for (let tariff of currentTariffs) {
+            let area = 0;
+            const step = 0.1;
+            for (let t = tariff.start; t < tariff.end; t += step) {
+              let tNext = Math.min(t + step, tariff.end);
+              let y1 = interpolatePower(t, points);
+              let y2 = interpolatePower(tNext, points);
+              area += (tNext - t) * (y1 + y2) / 2;
+            }
+            totalCost += area * tariff.rate;
+          }
+          totalCost = Math.round(totalCost);
+          document.getElementById('tariffOutput').innerText = `當日流動電費：${totalCost} 元`;
+        } else {
+          document.getElementById('areaOutput').innerText = '錯誤：請繪製曲線（至少兩個點）';
+        }
+      } catch (e) {
+        console.error('計算電費失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：計算電費失敗，原因：${e.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
