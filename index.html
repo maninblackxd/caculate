@@ -9,8 +9,10 @@
     html, body {
       margin: 0;
       padding: 0;
+      height: 100%;
       min-height: 100vh;
-      overflow-y: auto;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
       touch-action: auto;
       font-family: Arial, sans-serif;
       display: flex;
@@ -31,7 +33,6 @@
       max-width: 100%;
       visibility: visible;
       z-index: 1;
-      touch-action: none; /* 僅畫布內阻止滾動 */
     }
     #instructions {
       display: flex;
@@ -39,10 +40,11 @@
       align-items: center;
       width: 100%;
       max-width: 600px;
+      min-height: 100vh;
       overflow-y: auto;
       touch-action: auto;
       z-index: 2;
-      padding-bottom: 20px;
+      padding-bottom: 40px;
     }
     select, input[type="number"] {
       font-size: 18px;
@@ -79,7 +81,7 @@
       z-index: 2;
     }
     #historyOutput {
-      max-height: 150px;
+      max-height: 200px;
       overflow-y: auto;
       border: 1px solid #ccc;
       padding: 10px;
@@ -611,16 +613,16 @@
             document.getElementById('comparisonOutput').innerText = '這是第一次計算，無前次結果可比較。';
           }
 
-          // 自動滾動到結果
-          document.getElementById('areaOutput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // 自動滾動到歷史紀錄
+          document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
           document.getElementById('areaOutput').innerText = '錯誤：請繪製曲線（至少兩個點）';
-          document.getElementById('areaOutput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       } catch (e) {
         console.error('計算電費失敗:', e);
         document.getElementById('areaOutput').innerText = `錯誤：計算電費失敗，原因：${e.message}`;
-        document.getElementById('areaOutput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
   </script>
