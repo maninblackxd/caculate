@@ -2,30 +2,28 @@
 <html>
 <head>
   <title>Power Curve Drawer</title>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-  <script>
-    // 備用 CDN，若主 CDN 失敗
-    if (typeof p5 === 'undefined') {
-      document.write('<script src="https://unpkg.com/p5@1.9.4/lib/p5.min.js"><\/script>');
-    }
-  </script>
   <style>
-    body {
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      min-height: 100vh;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      font-family: Arial, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      font-family: Arial, sans-serif;
-      margin: 10px;
-      min-height: 100vh;
-      overflow-y: auto;
     }
     #canvasContainer {
       width: 100%;
       max-width: 600px;
       margin: 20px 0;
       position: relative;
-      touch-action: manipulation;
       overflow: visible;
     }
     canvas {
@@ -40,10 +38,9 @@
       align-items: center;
       width: 100%;
       max-width: 600px;
-      overflow-y: visible;
-      touch-action: auto;
-      user-select: auto;
-      pointer-events: auto;
+      min-height: 100vh;
+      overflow-y: auto;
+      padding-bottom: 40px;
     }
     select, input[type="number"] {
       font-size: 18px;
@@ -53,8 +50,6 @@
       max-width: 300px;
       border-radius: 5px;
       touch-action: auto;
-      user-select: auto;
-      pointer-events: auto;
     }
     button {
       font-size: 18px;
@@ -68,8 +63,6 @@
       width: 90%;
       max-width: 300px;
       touch-action: auto;
-      user-select: auto;
-      pointer-events: auto;
     }
     button:hover {
       background-color: #45a049;
@@ -83,7 +76,7 @@
       touch-action: auto;
     }
     #historyOutput {
-      max-height: 150px;
+      max-height: 200px;
       overflow-y: auto;
       border: 1px solid #ccc;
       padding: 10px;
@@ -114,7 +107,7 @@
     <p id="areaOutput"></p>
     <p id="tariffOutput"></p>
     <p id="comparisonOutput"></p>
-    <p id="historyOutput"></p>
+    <p id="historyOutput">歷史紀錄：\n無歷史紀錄</p>
   </div>
   <script>
     let points = [];
@@ -182,102 +175,93 @@
     function setup() {
       try {
         if (typeof p5 === 'undefined') {
-          throw new Error('p5.js 未載入，請檢查網路或 CDN');
+          throw new Error('p5.js 未載入，請檢查網路連線');
         }
-        // 適配手機螢幕
-        canvasWidth = Math.min(window.innerWidth * 0.9, 600);
-        canvasHeight = Math.min(window.innerWidth * 0.6, 400);
         let canvas = createCanvas(canvasWidth, canvasHeight);
         canvas.parent('canvasContainer');
         textAlign(CENTER, CENTER);
         textSize(12);
         console.log('畫布初始化成功，尺寸:', canvasWidth, 'x', canvasHeight);
-      } catch (e) {
-        console.error('畫布初始化失敗:', e);
-        document.getElementById('areaOutput').innerText = `錯誤：無法初始化畫布，原因：${e.message}。請檢查網路或瀏覽器設置。`;
-        return;
-      }
 
-      // 按鈕和輸入框事件監聽器
-      const yMaxInput = document.getElementById('yMax');
-      const tariffModeSelect = document.getElementById('tariffMode');
-      const saveCurveBtn = document.getElementById('saveCurve');
-      const calculateBtn = document.getElementById('calculate');
-      const clearCanvasBtn = document.getElementById('clearCanvas');
-      const clearHistoryBtn = document.getElementById('clearHistory');
+        // 按鈕和輸入框事件監聽器
+        const yMaxInput = document.getElementById('yMax');
+        const tariffModeSelect = document.getElementById('tariffMode');
+        const saveCurveBtn = document.getElementById('saveCurve');
+        const calculateBtn = document.getElementById('calculate');
+        const clearCanvasBtn = document.getElementById('clearCanvas');
+        const clearHistoryBtn = document.getElementById('clearHistory');
 
-      function addInputListeners(input, action, logMessage) {
-        input.addEventListener('change', (e) => {
-          console.log(logMessage, e.target.value);
-          action(e);
-        }, { passive: true });
-        input.addEventListener('touchstart', (e) => {
-          console.log(`Touchstart on ${input.id}`);
-          input.focus();
-          e.preventDefault();
-        }, { passive: false });
-        input.addEventListener('focus', () => {
-          console.log(`${input.id} focused`);
-        }, { passive: true });
-      }
+        function addInputListeners(input, action, logMessage) {
+          input.addEventListener('change', (e) => {
+            console.log(logMessage, e.target.value);
+            action(e);
+          }, { passive: true });
+          input.addEventListener('touchstart', (e) => {
+            console.log(`Touchstart on ${input.id}`);
+            input.focus();
+          }, { passive: true });
+        }
 
-      function addButtonListeners(btn, action, logMessage) {
-        btn.addEventListener('click', (e) => {
-          console.log(logMessage, '點數:', points.length, 'isDrawing:', isDrawing);
-          action(e);
-        }, { passive: true });
-        btn.addEventListener('touchstart', (e) => {
-          console.log(`Touchstart on button: ${btn.id}`);
-          e.preventDefault();
-          action(e);
-        }, { passive: false });
-      }
+        function addButtonListeners(btn, action, logMessage) {
+          btn.addEventListener('click', (e) => {
+            console.log(logMessage, '點數:', points.length, 'isDrawing:', isDrawing);
+            action(e);
+          }, { passive: true });
+          btn.addEventListener('touchstart', (e) => {
+            console.log(`Touchstart on button: ${btn.id}`);
+            action(e);
+          }, { passive: true });
+        }
 
-      addInputListeners(yMaxInput, (e) => {
-        yMax = parseFloat(e.target.value) || 100;
-        if (yMax <= 0) yMax = 100;
-      }, 'Y 軸最大值改變:');
+        addInputListeners(yMaxInput, (e) => {
+          yMax = parseFloat(e.target.value) || 100;
+          if (yMax <= 0) yMax = 100;
+        }, 'Y 軸最大值改變:');
 
-      addInputListeners(tariffModeSelect, (e) => {
-        const [season, type] = e.target.value.split('_');
-        tariffMode = { season, type };
-      }, '電價模式改變:');
+        addInputListeners(tariffModeSelect, (e) => {
+          const [season, type] = e.target.value.split('_');
+          tariffMode = { season, type };
+        }, '電價模式改變:');
 
-      addButtonListeners(saveCurveBtn, () => {
-        if (points.length > 1 && !isDrawing) {
-          savedCurves.push({ points: [...points], color: curveColors[savedCurves.length % curveColors.length] });
+        addButtonListeners(saveCurveBtn, () => {
+          if (points.length > 1 && !isDrawing) {
+            savedCurves.push({ points: [...points], color: curveColors[savedCurves.length % curveColors.length] });
+            points = [];
+            isDrawing = true;
+            lastXHour = -1;
+            document.getElementById('areaOutput').innerText = '';
+            document.getElementById('tariffOutput').innerText = '';
+            document.getElementById('comparisonOutput').innerText = '';
+          }
+        }, '點擊保留曲線');
+
+        addButtonListeners(calculateBtn, () => {
+          const now = Date.now();
+          if (now - lastCalculationTime > 500) {
+            lastCalculationTime = now;
+            calculateTariffAndHistory();
+          }
+        }, '點擊計算電費');
+
+        addButtonListeners(clearCanvasBtn, () => {
           points = [];
+          savedCurves = [];
           isDrawing = true;
           lastXHour = -1;
           document.getElementById('areaOutput').innerText = '';
           document.getElementById('tariffOutput').innerText = '';
           document.getElementById('comparisonOutput').innerText = '';
-        }
-      }, '點擊保留曲線');
+        }, '點擊清空畫布');
 
-      addButtonListeners(calculateBtn, (e) => {
-        const now = Date.now();
-        if (now - lastCalculationTime > 500) {
-          lastCalculationTime = now;
-          calculateTariffAndHistory();
-        }
-      }, '點擊計算電費');
-
-      addButtonListeners(clearCanvasBtn, () => {
-        points = [];
-        savedCurves = [];
-        isDrawing = true;
-        lastXHour = -1;
-        document.getElementById('areaOutput').innerText = '';
-        document.getElementById('tariffOutput').innerText = '';
-        document.getElementById('comparisonOutput').innerText = '';
-      }, '點擊清空畫布');
-
-      addButtonListeners(clearHistoryBtn, () => {
-        history = [];
-        document.getElementById('historyOutput').innerText = '歷史紀錄：\n無歷史紀錄';
-        document.getElementById('comparisonOutput').innerText = '歷史紀錄已清空，下次計算將無前次結果可比較。';
-      }, '點擊清空歷史紀錄');
+        addButtonListeners(clearHistoryBtn, () => {
+          history = [];
+          document.getElementById('historyOutput').innerText = '歷史紀錄：\n無歷史紀錄';
+          document.getElementById('comparisonOutput').innerText = '歷史紀錄已清空，下次計算將無前次結果可比較。';
+        }, '點擊清空歷史紀錄');
+      } catch (e) {
+        console.error('畫布初始化失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：無法初始化畫布，原因：${e.message}。請檢查網路或瀏覽器設置。`;
+      }
     }
 
     function draw() {
@@ -372,8 +356,8 @@
           }
         }
       } catch (e) {
-        console.error('繪製失敗:', e);
-        document.getElementById('areaOutput').innerText = `錯誤：繪製畫布失敗，原因：${e.message}。請檢查瀏覽器設置。`;
+        console.error('繪製畫布失敗:', e);
+        document.getElementById('areaOutput').innerText = `錯誤：繪製畫布失敗，原因：${e.message}`;
       }
     }
 
@@ -433,36 +417,35 @@
       if (startDrawing(mouseX, mouseY, true)) {
         e.preventDefault();
       }
-      return false;
+      return true;
     }
 
     function touchMoved(e) {
       if (continueDrawing(mouseX, mouseY, true)) {
         e.preventDefault();
       }
-      return false;
+      return true;
     }
 
     function touchEnded(e) {
       endDrawing(true);
-      e.preventDefault();
-      return false;
+      return true;
     }
 
     // 滑鼠事件
     function mousePressed() {
       startDrawing(mouseX, mouseY, false);
-      return false;
+      return true;
     }
 
     function mouseDragged() {
       continueDrawing(mouseX, mouseY, false);
-      return false;
+      return true;
     }
 
     function mouseReleased() {
       endDrawing(false);
-      return false;
+      return true;
     }
 
     // 線性插值函數
@@ -540,7 +523,7 @@
           let currentSummer = calculateTariff(points, 'summer', tariffMode.type);
           tariffDetails += currentSummer.tariffDetails;
           const summerTotalCost = currentSummer.totalCost;
-          
+
           tariffDetails += `${currentModeName}（非夏月）：\n`;
           let currentNonSummer = calculateTariff(points, 'nonSummer', tariffMode.type);
           tariffDetails += currentNonSummer.tariffDetails;
@@ -565,7 +548,6 @@
             tariffDetails += otherNonSummer.tariffDetails;
             const otherNonSummerTotalCost = otherNonSummer.totalCost;
 
-            // 計算其他模式的年度電費
             const otherAnnualCost = Math.round(otherSummerTotalCost * summerWeekdays + otherNonSummerTotalCost * nonSummerWeekdays);
             tariffDetails += `以114年平日天數為例(夏月:${summerWeekdays}天，非夏月${nonSummerWeekdays}天)，一整年平日流動電費總金額為: ${otherAnnualCost} 元\n\n`;
           }
@@ -617,12 +599,17 @@
           } else {
             document.getElementById('comparisonOutput').innerText = '這是第一次計算，無前次結果可比較。';
           }
+
+          // 自動滾動到歷史紀錄
+          document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
           document.getElementById('areaOutput').innerText = '錯誤：請繪製曲線（至少兩個點）';
+          document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       } catch (e) {
         console.error('計算電費失敗:', e);
         document.getElementById('areaOutput').innerText = `錯誤：計算電費失敗，原因：${e.message}`;
+        document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
   </script>
