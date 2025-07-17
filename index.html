@@ -14,15 +14,7 @@
       min-height: 100vh;
       overflow-y: scroll;
       -webkit-overflow-scrolling: touch;
-      overscroll-behavior: auto;
       font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    #mainContainer {
-      width: 100%;
-      max-width: 600px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -30,7 +22,9 @@
     #canvasContainer {
       width: 100%;
       max-width: 600px;
-      margin: 10px 0;
+      margin: 20px 0;
+      position: relative;
+      overflow: visible;
     }
     canvas {
       border: 1px solid black;
@@ -45,6 +39,7 @@
       width: 100%;
       max-width: 600px;
       min-height: 100vh;
+      overflow-y: auto;
       padding-bottom: 40px;
     }
     select, input[type="number"] {
@@ -83,32 +78,30 @@
   </style>
 </head>
 <body>
-  <div id="mainContainer">
-    <div id="canvasContainer"></div>
-    <div id="instructions">
-      <p>選擇電價模式：
-        <select id="tariffMode">
-          <option value="summer_three">夏月三段式</option>
-          <option value="summer_two">夏月二段式</option>
-          <option value="summer_batch">夏月批次</option>
-          <option value="nonSummer_three">非夏月三段式</option>
-          <option value="nonSummer_two">非夏月二段式</option>
-          <option value="nonSummer_batch">非夏月批次</option>
-        </select>
-      </p>
-      <p>輸入 Y 軸最大值 (kW)：
-        <input type="number" id="yMax" min="1" value="100">
-      </p>
-      <p>在畫布上拖曳（從左到右）繪製曲線。使用以下按鈕操作：</p>
-      <button id="saveCurve">保留曲線</button>
-      <button id="calculate">計算電費</button>
-      <button id="clearCanvas">清空畫布</button>
-      <button id="clearHistory">清空歷史紀錄</button>
-      <p id="areaOutput"></p>
-      <p id="tariffOutput"></p>
-      <p id="comparisonOutput"></p>
-      <p id="historyOutput">歷史紀錄：\n無歷史紀錄</p>
-    </div>
+  <div id="canvasContainer"></div>
+  <div id="instructions">
+    <p>選擇電價模式：
+      <select id="tariffMode">
+        <option value="summer_three">夏月三段式</option>
+        <option value="summer_two">夏月二段式</option>
+        <option value="summer_batch">夏月批次</option>
+        <option value="nonSummer_three">非夏月三段式</option>
+        <option value="nonSummer_two">非夏月二段式</option>
+        <option value="nonSummer_batch">非夏月批次</option>
+      </select>
+    </p>
+    <p>輸入 Y 軸最大值 (kW)：
+      <input type="number" id="yMax" min="1" value="100">
+    </p>
+    <p>在畫布上拖曳（從左到右）繪製曲線。使用以下按鈕操作：</p>
+    <button id="saveCurve">保留曲線</button>
+    <button id="calculate">計算電費</button>
+    <button id="clearCanvas">清空畫布</button>
+    <button id="clearHistory">清空歷史紀錄</button>
+    <p id="areaOutput"></p>
+    <p id="tariffOutput"></p>
+    <p id="comparisonOutput"></p>
+    <p id="historyOutput">歷史紀錄：\n無歷史紀錄</p>
   </div>
   <script>
     let points = [];
@@ -601,16 +594,16 @@
             document.getElementById('comparisonOutput').innerText = '這是第一次計算，無前次結果可比較。';
           }
 
-          // 自動滾動到電費資訊
-          document.getElementById('tariffOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // 自動滾動到歷史紀錄
+          document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
           document.getElementById('areaOutput').innerText = '錯誤：請繪製曲線（至少兩個點）';
-          document.getElementById('tariffOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       } catch (e) {
         console.error('計算電費失敗:', e);
         document.getElementById('areaOutput').innerText = `錯誤：計算電費失敗，原因：${e.message}`;
-        document.getElementById('tariffOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('historyOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
   </script>
